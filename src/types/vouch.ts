@@ -57,6 +57,8 @@ export interface VouchInput {
   category: Exclude<VouchCategory, 'Todos'>;
   published?: boolean;
   pinned?: boolean;
+  /** ISO date string. Omit to use the current date/time. */
+  createdAt?: string;
 }
 
 export interface HubConfig {

@@ -18,6 +18,7 @@ import {
   LogOut,
   Loader2,
   Lock,
+  Calendar,
 } from 'lucide-react';
 import { useVouchStore } from '../store/vouchStore';
 import { api, ApiError, getAuthToken, resolveMediaUrl, setAuthToken } from '../lib/api';
@@ -47,6 +48,8 @@ interface FormState {
   caption: string;
   category: Exclude<VouchCategory, 'Todos'>;
   pinned: boolean;
+  /** YYYY-MM-DD, matching an <input type="date">. Empty = use the current date. */
+  publishDate: string;
 }
 
 const emptyForm: FormState = {
@@ -59,7 +62,10 @@ const emptyForm: FormState = {
   caption: '',
   category: 'Envíos',
   pinned: false,
+  publishDate: '',
 };
+
+const toDateInputValue = (isoString: string): string => isoString.slice(0, 10);
 
 const LoginScreen = ({ onLoggedIn }: { onLoggedIn: (token: string) => void }) => {
   const [password, setPassword] = useState('');
@@ -184,6 +190,16 @@ export const AdminModal = ({ open, onClose }: AdminModalProps) => {
     setIsSaving(true);
     setFormError(null);
 
+    // Build the date from local YYYY-MM-DD parts at local noon (not
+    // UTC midnight) so it can't roll over to the previous/next day once
+    // converted to UTC for storage and back to local time for display.
+    const createdAt = form.publishDate
+      ? (() => {
+          const [year, month, day] = form.publishDate.split('-').map(Number);
+          return new Date(year, month - 1, day, 12).toISOString();
+        })()
+      : undefined;
+
     try {
       if (editingId) {
         await updateVouch(editingId, {
@@ -193,6 +209,7 @@ export const AdminModal = ({ open, onClose }: AdminModalProps) => {
           caption: form.caption.trim(),
           category: form.category,
           pinned: form.pinned,
+          createdAt,
         });
       } else {
         await addVouch({
@@ -204,6 +221,7 @@ export const AdminModal = ({ open, onClose }: AdminModalProps) => {
           category: form.category,
           published: true,
           pinned: form.pinned,
+          createdAt,
         });
       }
       resetForm();
@@ -229,6 +247,7 @@ export const AdminModal = ({ open, onClose }: AdminModalProps) => {
       caption: v.caption,
       category: v.category === 'Todos' ? 'Envíos' : v.category,
       pinned: v.pinned,
+      publishDate: toDateInputValue(v.createdAt),
     });
   };
 
@@ -437,6 +456,22 @@ export const AdminModal = ({ open, onClose }: AdminModalProps) => {
                         {cat}
                       </button>
                     ))}
+                  </div>
+
+                  <div>
+                    <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Fecha de publicación (opcional)
+                    </label>
+                    <input
+                      type="date"
+                      value={form.publishDate}
+                      onChange={(e) => setForm((f) => ({ ...f, publishDate: e.target.value }))}
+                      className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 [color-scheme:dark] focus:border-cyan focus:outline-none"
+                    />
+                    <p className="mt-1 text-[11px] text-slate-400/70">
+                      Déjalo vacío para usar la fecha y hora actuales.
+                    </p>
                   </div>
 
                   <label className="flex items-center gap-2 text-sm text-slate-400">
